@@ -1,0 +1,76 @@
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+export interface Pedido {
+  id: string;
+  numero: string;
+  cliente: string;
+  cpfCnpj: string;
+  email: string;
+  telefone: string;
+  endereco: {
+    logradouro: string;
+    numero: string;
+    complemento: string;
+    bairro: string;
+    cidade: string;
+    uf: string;
+    cep: string;
+    enderecoCompleto: string;
+  };
+  valor: number;
+  valorFrete: number;
+  situacao: string;
+}
+
+export interface EnvioResultado {
+  pedidoId: string;
+  pedidoNumero: string;
+  trackingCode: string | null;
+  volumeIds: string[];
+  sucesso: boolean;
+  erro?: string;
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  total?: number;
+}
+
+export interface EnvioResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  resultados: EnvioResultado[];
+  resumo?: {
+    total: number;
+    sucessos: number;
+    falhas: number;
+  };
+}
+
+export async function buscarPedidosFMTransportes(data?: string): Promise<ApiResponse<Pedido[]>> {
+  const url = data
+    ? `${API_URL}/pedidos/hoje/fmtransportes?data=${data}`
+    : `${API_URL}/pedidos/hoje/fmtransportes`;
+
+  const response = await fetch(url);
+  return response.json();
+}
+
+export async function enviarPedidos(pedidoIds: string[]): Promise<EnvioResponse> {
+  const response = await fetch(`${API_URL}/enviar`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ pedidoIds }),
+  });
+  return response.json();
+}
+
+export async function verificarSaude(): Promise<{ status: string }> {
+  const response = await fetch(`${API_URL}/health`);
+  return response.json();
+}

@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  fm-cli:
+    build:
+      context: ./fm-cli
+      dockerfile: Dockerfile
+    container_name: fm-cli
+    restart: unless-stopped
+    ports:
+      - "3021:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - FM_API_URL=https://integration.fmtransportes.com.br/api
+      - FM_API_USER=apikey
+      - FM_API_PASSWORD=0663acdd9ee44005e6ea08dd0ae339c0afa33e1e55e541fa8fa37c7c9abc5086
+      - FM_CLIENT_DOCUMENT=34383648835
+      - TINY_API_URL=http://tiny.sdebot.top:3011/api/tiny
+      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,https://fmtransportes.sdebot.top
+    networks:
+      - fm-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fm-api.rule=Host(`fm-api.sdebot.top`)"
+      - "traefik.http.routers.fm-api.entrypoints=websecure"
+      - "traefik.http.routers.fm-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.fm-api.loadbalancer.server.port=3001"
+
+  fm-web:
+    build:
+      context: ./fm-web
+      dockerfile: Dockerfile
+    container_name: fm-web
+    restart: unless-stopped
+    ports:
+      - "3020:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=https://fm-api.sdebot.top
+    depends_on:
+      - fm-cli
+    networks:
+      - fm-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fm-web.rule=Host(`fmtransportes.sdebot.top`)"
+      - "traefik.http.routers.fm-web.entrypoints=websecure"
+      - "traefik.http.routers.fm-web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.fm-web.loadbalancer.server.port=3000"
+
+networks:
+  fm-network:
+    driver: bridge
