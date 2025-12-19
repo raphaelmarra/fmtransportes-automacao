@@ -6,6 +6,9 @@ import {
   FMOrderResponse,
   FMApiResponse,
   EnvioResultado,
+  EtiquetaResultado,
+  FMLabelResponse,
+  FMLabelDownloadResponse,
   ESTADO_MAP,
 } from './fm.interface';
 
@@ -174,5 +177,126 @@ export class FMTransportesService {
       this.logger.error(`FM Transportes indisponivel: ${error.message}`);
       return false;
     }
+  }
+
+  /**
+   * Solicita geracao de etiqueta para um trackingCode
+   * Rate limit: nao documentado, usar com cautela
+   */
+  async solicitarEtiqueta(trackingCode: string): Promise<{ labelId: string | null; erro?: string }> {
+    this.logger.log(`Solicitando etiqueta para tracking: ${trackingCode}`);
+
+    try {
+      const response = await this.client.post<FMApiResponse<FMLabelResponse>>('/v1/label', {
+        clientDocument: this.clientDocument,
+        field: 1, // 1 = trackingCode
+        value: trackingCode,
+      });
+
+      if (!response.data.success) {
+        this.logger.error(`Erro ao solicitar etiqueta: ${response.data.message}`);
+        return { labelId: null, erro: response.data.message };
+      }
+
+      const labelId = response.data.data?.labelId || null;
+      this.logger.log(`Etiqueta solicitada. LabelId: ${labelId}`);
+      return { labelId };
+    } catch (error: any) {
+      this.logger.error(`Erro ao solicitar etiqueta: ${error.message}`);
+      return { labelId: null, erro: error.response?.data?.message || error.message };
+    }
+  }
+
+  /**
+   * Baixa URL do PDF da etiqueta
+   * A URL expira em 1 hora
+   */
+  async baixarEtiqueta(labelId: string): Promise<{ url: string | null; erro?: string }> {
+    this.logger.log(`Baixando URL da etiqueta: ${labelId}`);
+
+    try {
+      const response = await this.client.get<FMApiResponse<FMLabelDownloadResponse>>(
+        `/v1/label/${labelId}`,
+      );
+
+      if (!response.data.success) {
+        this.logger.error(`Erro ao baixar etiqueta: ${response.data.message}`);
+        return { url: null, erro: response.data.message };
+      }
+
+      const url = response.data.data?.url || null;
+      this.logger.log(`Etiqueta disponivel: ${url ? 'SIM' : 'NAO'}`);
+      return { url };
+    } catch (error: any) {
+      this.logger.error(`Erro ao baixar etiqueta: ${error.message}`);
+      return { url: null, erro: error.response?.data?.message || error.message };
+    }
+  }
+
+  /**
+   * Gera etiquetas para multiplos trackingCodes
+   * Solicita + baixa URL em sequencia
+   */
+  async gerarEtiquetas(trackingCodes: string[]): Promise<EtiquetaResultado[]> {
+    const resultados: EtiquetaResultado[] = [];
+
+    for (const trackingCode of trackingCodes) {
+      // 1. Solicitar geracao
+      const { labelId, erro: erroSolicitar } = await this.solicitarEtiqueta(trackingCode);
+
+      if (!labelId) {
+        resultados.push({
+          trackingCode,
+          labelId: null,
+          labelUrl: null,
+          sucesso: false,
+          erro: erroSolicitar || 'Falha ao solicitar etiqueta',
+        });
+        continue;
+      }
+
+      // 2. Aguardar processamento (1 segundo)
+      await this.delay(1000);
+
+      // 3. Baixar URL
+      const { url, erro: erroBaixar } = await this.baixarEtiqueta(labelId);
+
+      if (!url) {
+        // Tentar novamente apos mais 2 segundos
+        await this.delay(2000);
+        const retry = await this.baixarEtiqueta(labelId);
+
+        if (!retry.url) {
+          resultados.push({
+            trackingCode,
+            labelId,
+            labelUrl: null,
+            sucesso: false,
+            erro: erroBaixar || 'Etiqueta em processamento, tente novamente',
+          });
+          continue;
+        }
+
+        resultados.push({
+          trackingCode,
+          labelId,
+          labelUrl: retry.url,
+          sucesso: true,
+        });
+      } else {
+        resultados.push({
+          trackingCode,
+          labelId,
+          labelUrl: url,
+          sucesso: true,
+        });
+      }
+    }
+
+    return resultados;
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

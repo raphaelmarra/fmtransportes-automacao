@@ -74,3 +74,34 @@ export async function verificarSaude(): Promise<{ status: string }> {
   const response = await fetch(`${API_URL}/health`);
   return response.json();
 }
+
+// Etiquetas
+
+export interface EtiquetaResultado {
+  trackingCode: string;
+  labelId: string | null;
+  labelUrl: string | null;
+  sucesso: boolean;
+  erro?: string;
+}
+
+export interface EtiquetasResponse {
+  success: boolean;
+  etiquetas: EtiquetaResultado[];
+  resumo: {
+    total: number;
+    sucessos: number;
+    falhas: number;
+  };
+}
+
+export async function gerarEtiquetas(trackingCodes: string[]): Promise<EtiquetasResponse> {
+  const response = await fetch(`${API_URL}/etiquetas`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ trackingCodes }),
+  });
+  return response.json();
+}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Pedido, EnvioResultado, buscarPedidosFMTransportes, enviarPedidos } from '@/lib/api';
+import { Pedido, EnvioResultado, EtiquetaResultado, buscarPedidosFMTransportes, enviarPedidos, gerarEtiquetas } from '@/lib/api';
 import { formatarMoeda } from '@/lib/utils';
 
 export default function Home() {
@@ -11,6 +11,8 @@ export default function Home() {
   const [enviando, setEnviando] = useState(false);
   const [resultados, setResultados] = useState<EnvioResultado[]>([]);
   const [erro, setErro] = useState<string | null>(null);
+  const [gerandoEtiquetas, setGerandoEtiquetas] = useState(false);
+  const [etiquetas, setEtiquetas] = useState<EtiquetaResultado[]>([]);
 
   useEffect(() => {
     carregarPedidos();
@@ -87,6 +89,37 @@ export default function Home() {
     }
   }
 
+  // Pega tracking codes dos resultados que foram enviados com sucesso
+  const trackingCodesEnviados = resultados
+    .filter(r => r.sucesso && r.trackingCode)
+    .map(r => r.trackingCode as string);
+
+  async function handleGerarEtiquetas() {
+    if (trackingCodesEnviados.length === 0) {
+      alert('Nenhum pedido enviado com tracking code disponivel');
+      return;
+    }
+
+    setGerandoEtiquetas(true);
+    setEtiquetas([]);
+
+    try {
+      const response = await gerarEtiquetas(trackingCodesEnviados);
+      setEtiquetas(response.etiquetas || []);
+
+      if (response.success) {
+        const sucessos = response.resumo?.sucessos || 0;
+        alert(`${sucessos} etiqueta(s) gerada(s) com sucesso!`);
+      } else {
+        alert('Erro ao gerar etiquetas');
+      }
+    } catch (e: any) {
+      alert(e.message || 'Erro de conexao');
+    } finally {
+      setGerandoEtiquetas(false);
+    }
+  }
+
   return (
     <main className="min-h-screen p-8 bg-gray-50">
       <div className="max-w-7xl mx-auto">
@@ -109,13 +142,24 @@ export default function Home() {
                 {pedidos.length} pedidos encontrados | {selecionados.size} selecionados
               </span>
             </div>
-            <button
-              onClick={handleEnviar}
-              disabled={enviando || selecionados.size === 0}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {enviando ? 'Enviando...' : `Enviar para FM (${selecionados.size})`}
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={handleEnviar}
+                disabled={enviando || selecionados.size === 0}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {enviando ? 'Enviando...' : `Enviar para FM (${selecionados.size})`}
+              </button>
+              {trackingCodesEnviados.length > 0 && (
+                <button
+                  onClick={handleGerarEtiquetas}
+                  disabled={gerandoEtiquetas}
+                  className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {gerandoEtiquetas ? 'Gerando...' : `Gerar Etiquetas (${trackingCodesEnviados.length})`}
+                </button>
+              )}
+            </div>
           </div>
 
           {erro && (
@@ -134,6 +178,45 @@ export default function Home() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {etiquetas.length > 0 && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+              <h3 className="font-semibold text-blue-800 mb-2">Etiquetas Geradas</h3>
+              <div className="space-y-2 text-sm">
+                {etiquetas.map((e, i) => (
+                  <div key={i} className={`flex items-center justify-between ${e.sucesso ? 'text-blue-700' : 'text-red-600'}`}>
+                    <span>Tracking: {e.trackingCode}</span>
+                    {e.sucesso && e.labelUrl ? (
+                      <a
+                        href={e.labelUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
+                      >
+                        Baixar PDF
+                      </a>
+                    ) : (
+                      <span className="text-red-500 text-xs">{e.erro || 'Erro ao gerar'}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {etiquetas.some(e => e.sucesso && e.labelUrl) && (
+                <div className="mt-3 pt-3 border-t border-blue-200">
+                  <button
+                    onClick={() => {
+                      etiquetas
+                        .filter(e => e.sucesso && e.labelUrl)
+                        .forEach(e => window.open(e.labelUrl!, '_blank'));
+                    }}
+                    className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 text-sm"
+                  >
+                    Abrir Todas as Etiquetas
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -223,7 +306,7 @@ export default function Home() {
         </div>
 
         <footer className="mt-8 text-center text-gray-500 text-sm">
-          FM Transportes - Setor da Embalagem | MVP 1 - Envio de Pedidos
+          FM Transportes - Setor da Embalagem | MVP 2 - Envio de Pedidos + Etiquetas
         </footer>
       </div>
     </main>

@@ -49,6 +49,31 @@ export interface EnvioResultado {
   erro?: string;
 }
 
+// Interfaces para Etiquetas
+
+export interface FMLabelRequest {
+  clientDocument: string;
+  field: number; // 1 = trackingCode, 2 = orderNumber
+  value: string;
+}
+
+export interface FMLabelResponse {
+  labelId: string;
+}
+
+export interface FMLabelDownloadResponse {
+  url: string;
+  expiresAt?: string;
+}
+
+export interface EtiquetaResultado {
+  trackingCode: string;
+  labelId: string | null;
+  labelUrl: string | null;
+  sucesso: boolean;
+  erro?: string;
+}
+
 // Mapeamento UF para codigo numerico FM Transportes
 export const ESTADO_MAP: Record<string, number> = {
   AC: 1,
