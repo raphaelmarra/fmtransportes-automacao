@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Pedido, EnvioResultado, EtiquetaResultado, buscarPedidosFMTransportes, enviarPedidos, gerarEtiquetas } from '@/lib/api';
 import { formatarMoeda } from '@/lib/utils';
+import { abrirEtiqueta10x15, combinarEtiquetas10x15 } from '@/lib/pdf-utils';
 
 export default function Home() {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -13,6 +14,7 @@ export default function Home() {
   const [erro, setErro] = useState<string | null>(null);
   const [gerandoEtiquetas, setGerandoEtiquetas] = useState(false);
   const [etiquetas, setEtiquetas] = useState<EtiquetaResultado[]>([]);
+  const [processandoPdf, setProcessandoPdf] = useState(false);
 
   useEffect(() => {
     carregarPedidos();
@@ -189,14 +191,22 @@ export default function Home() {
                   <div key={i} className={`flex items-center justify-between ${e.sucesso ? 'text-blue-700' : 'text-red-600'}`}>
                     <span>Tracking: {e.trackingCode}</span>
                     {e.sucesso && e.labelUrl ? (
-                      <a
-                        href={e.labelUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
-                      >
-                        Baixar PDF
-                      </a>
+                      <div className="flex gap-2">
+                        <a
+                          href={e.labelUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-xs"
+                        >
+                          Original
+                        </a>
+                        <button
+                          onClick={() => abrirEtiqueta10x15(e.labelUrl!)}
+                          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
+                        >
+                          10x15cm
+                        </button>
+                      </div>
                     ) : (
                       <span className="text-red-500 text-xs">{e.erro || 'Erro ao gerar'}</span>
                     )}
@@ -204,16 +214,37 @@ export default function Home() {
                 ))}
               </div>
               {etiquetas.some(e => e.sucesso && e.labelUrl) && (
-                <div className="mt-3 pt-3 border-t border-blue-200">
+                <div className="mt-3 pt-3 border-t border-blue-200 flex gap-3 flex-wrap">
                   <button
                     onClick={() => {
                       etiquetas
                         .filter(e => e.sucesso && e.labelUrl)
                         .forEach(e => window.open(e.labelUrl!, '_blank'));
                     }}
-                    className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 text-sm"
+                    className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
                   >
-                    Abrir Todas as Etiquetas
+                    Abrir Originais
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setProcessandoPdf(true);
+                      try {
+                        const urls = etiquetas
+                          .filter(e => e.sucesso && e.labelUrl)
+                          .map(e => e.labelUrl!);
+                        const blob = await combinarEtiquetas10x15(urls);
+                        const url = URL.createObjectURL(blob);
+                        window.open(url, '_blank');
+                      } catch (err) {
+                        alert('Erro ao processar PDFs');
+                      } finally {
+                        setProcessandoPdf(false);
+                      }
+                    }}
+                    disabled={processandoPdf}
+                    className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 text-sm disabled:opacity-50"
+                  >
+                    {processandoPdf ? 'Processando...' : 'Abrir Todas 10x15cm'}
                   </button>
                 </div>
               )}
