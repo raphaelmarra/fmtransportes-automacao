@@ -25,7 +25,7 @@ async function bootstrap() {
   const corsOrigins = process.env.CORS_ORIGINS?.split(',') || [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
-    'https://fmtransportes.sdebot.top',
+    'https://fm.sdebot.top',
   ];
 
   app.enableCors({

@@ -17,7 +17,7 @@ services:
       - FM_API_PASSWORD=0663acdd9ee44005e6ea08dd0ae339c0afa33e1e55e541fa8fa37c7c9abc5086
       - FM_CLIENT_DOCUMENT=34383648835
       - TINY_API_URL=http://tiny.sdebot.top:3011/api/tiny
-      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,https://fmtransportes.sdebot.top
+      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,https://fm.sdebot.top
     networks:
       - fm-network
     labels:
@@ -44,7 +44,7 @@ services:
       - fm-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.fm-web.rule=Host(`fmtransportes.sdebot.top`)"
+      - "traefik.http.routers.fm-web.rule=Host(`fm.sdebot.top`)"
       - "traefik.http.routers.fm-web.entrypoints=websecure"
       - "traefik.http.routers.fm-web.tls.certresolver=letsencrypt"
       - "traefik.http.services.fm-web.loadbalancer.server.port=3000"
