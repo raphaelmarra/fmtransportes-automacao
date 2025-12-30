@@ -1,13 +1,21 @@
 import { Module } from '@nestjs/common';
+import { CoreModule } from './core/core.module';
 import { TinyModule } from './integrations/tiny/tiny.module';
 import { FMTransportesModule } from './integrations/fmtransportes/fm.module';
 import { PedidosController } from './api/pedidos.controller';
 import { EnvioController } from './api/envio.controller';
 import { HealthController } from './api/health.controller';
 import { EtiquetasController } from './api/etiquetas.controller';
+import { MonitoramentoController } from './api/monitoramento.controller';
 
 @Module({
-  imports: [TinyModule, FMTransportesModule],
-  controllers: [PedidosController, EnvioController, HealthController, EtiquetasController],
+  imports: [CoreModule, TinyModule, FMTransportesModule],
+  controllers: [
+    PedidosController,
+    EnvioController,
+    HealthController,
+    EtiquetasController,
+    MonitoramentoController,
+  ],
 })
 export class AppModule {}

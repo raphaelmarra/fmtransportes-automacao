@@ -105,3 +105,83 @@ export async function gerarEtiquetas(trackingCodes: string[]): Promise<Etiquetas
   });
   return response.json();
 }
+
+// Monitoramento
+
+export interface EnvioMonitoramento {
+  id: number;
+  trackingCode: string;
+  pedidoNumero: string;
+  clienteNome: string;
+  clienteTelefone?: string;
+  enderecoResumido: string;
+  dataEnvio: string;
+  ultimoStatus: number;
+  ultimoStatusDescricao: string;
+  ultimaMovimentacao: string;
+  tempoParadoHoras: number;
+  alertaAtivo: boolean;
+}
+
+export interface MonitoramentoResumo {
+  total: number;
+  emTransito: number;
+  entregues: number;
+  parados24h: number;
+  parados48h: number;
+}
+
+export interface AlertaEnvio {
+  id: number;
+  trackingCode: string;
+  pedidoNumero: string;
+  clienteNome: string;
+  clienteTelefone?: string;
+  tempoParadoHoras: number;
+  ultimoStatus: string;
+  ultimaMovimentacao: string;
+  prioridade: 'alta' | 'media' | 'baixa';
+}
+
+export interface TrackingEvento {
+  trackingId: string;
+  trackingCode: string;
+  status: number;
+  statusDescricao: string;
+  dataEvento: string;
+  receivedBy?: string;
+}
+
+export async function listarEnviosMonitoramento(): Promise<ApiResponse<EnvioMonitoramento[]>> {
+  const response = await fetch(`${API_URL}/monitoramento`);
+  return response.json();
+}
+
+export async function obterResumoMonitoramento(): Promise<ApiResponse<MonitoramentoResumo>> {
+  const response = await fetch(`${API_URL}/monitoramento/resumo`);
+  return response.json();
+}
+
+export async function listarAlertas(horas?: number): Promise<ApiResponse<AlertaEnvio[]>> {
+  const url = horas
+    ? `${API_URL}/monitoramento/alertas?horas=${horas}`
+    : `${API_URL}/monitoramento/alertas`;
+  const response = await fetch(url);
+  return response.json();
+}
+
+export async function buscarEnvioDetalhe(trackingCode: string): Promise<ApiResponse<{
+  envio: EnvioMonitoramento;
+  eventos: TrackingEvento[];
+}>> {
+  const response = await fetch(`${API_URL}/monitoramento/${trackingCode}`);
+  return response.json();
+}
+
+export async function atualizarTracking(trackingCode?: string): Promise<ApiResponse<any>> {
+  const url = trackingCode
+    ? `${API_URL}/monitoramento/${trackingCode}/atualizar`
+    : `${API_URL}/monitoramento/atualizar`;
+  const response = await fetch(url, { method: 'POST' });
+  return response.json();
+}
