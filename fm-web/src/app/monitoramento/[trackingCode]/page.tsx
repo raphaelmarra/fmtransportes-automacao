@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -21,7 +21,7 @@ export default function DetalhesEnvioPage() {
   const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  const carregarDados = async () => {
+  const carregarDados = useCallback(async () => {
     try {
       setLoading(true);
       setErro(null);
@@ -32,7 +32,7 @@ export default function DetalhesEnvioPage() {
         setEnvio(response.data.envio);
         setEventos(response.data.eventos);
       } else {
-        setErro('Envio nao encontrado');
+        setErro(response.error || 'Envio nao encontrado');
       }
     } catch (err) {
       setErro('Erro ao carregar detalhes do envio');
@@ -40,13 +40,13 @@ export default function DetalhesEnvioPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [trackingCode]);
 
   useEffect(() => {
     if (trackingCode) {
       carregarDados();
     }
-  }, [trackingCode]);
+  }, [trackingCode, carregarDados]);
 
   const handleAtualizar = async () => {
     try {

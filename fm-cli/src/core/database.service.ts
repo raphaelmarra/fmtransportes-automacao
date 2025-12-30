@@ -24,6 +24,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       client.release();
     } catch (error: any) {
       this.logger.error(`Erro ao conectar ao banco: ${error.message}`);
+      throw error; // Fail fast - nao iniciar sem banco
     }
   }
 

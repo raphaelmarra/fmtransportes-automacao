@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, Post, Logger } from '@nestjs/common';
+import { Controller, Get, Param, Query, Post, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { TrackingService } from '../integrations/fmtransportes/tracking.service';
 
 @Controller('monitoramento')
@@ -42,7 +42,14 @@ export class MonitoramentoController {
    */
   @Get('alertas')
   async listarAlertas(@Query('horas') horas?: string) {
-    const horasMinimo = horas ? parseInt(horas, 10) : 24;
+    let horasMinimo = 24;
+    if (horas) {
+      const parsed = parseInt(horas, 10);
+      if (isNaN(parsed) || parsed < 1 || parsed > 168) {
+        throw new BadRequestException('Parametro horas deve ser entre 1 e 168');
+      }
+      horasMinimo = parsed;
+    }
     this.logger.log(`Listando alertas (parados > ${horasMinimo}h)`);
     const alertas = await this.trackingService.listarAlertas(horasMinimo);
     return {
@@ -62,10 +69,7 @@ export class MonitoramentoController {
     const { envio, eventos } = await this.trackingService.buscarEnvio(trackingCode);
 
     if (!envio) {
-      return {
-        success: false,
-        message: 'Envio nao encontrado',
-      };
+      throw new NotFoundException('Envio nao encontrado');
     }
 
     return {
@@ -102,10 +106,7 @@ export class MonitoramentoController {
     const { envio, eventos } = await this.trackingService.buscarEnvio(trackingCode);
 
     if (!envio) {
-      return {
-        success: false,
-        message: 'Envio nao encontrado',
-      };
+      throw new NotFoundException('Envio nao encontrado');
     }
 
     return {

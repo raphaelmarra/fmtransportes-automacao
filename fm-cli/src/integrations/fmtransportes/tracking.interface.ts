@@ -27,10 +27,10 @@ export interface EnvioMonitoramento {
   clienteNome: string;
   clienteTelefone?: string;
   enderecoResumido: string;
-  dataEnvio: Date;
+  dataEnvio: string | Date; // Date no service, string no JSON
   ultimoStatus: number;
   ultimoStatusDescricao: string;
-  ultimaMovimentacao: Date;
+  ultimaMovimentacao: string | Date; // Date no service, string no JSON
   tempoParadoHoras: number;
   alertaAtivo: boolean;
 }
@@ -51,7 +51,7 @@ export interface AlertaEnvio {
   clienteTelefone?: string;
   tempoParadoHoras: number;
   ultimoStatus: string;
-  ultimaMovimentacao: Date;
+  ultimaMovimentacao: string | Date; // Date no service, string no JSON
   prioridade: 'alta' | 'media' | 'baixa';
 }
 

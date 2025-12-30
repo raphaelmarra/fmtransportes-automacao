@@ -108,6 +108,23 @@ export async function gerarEtiquetas(trackingCodes: string[]): Promise<Etiquetas
 
 // Monitoramento
 
+async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
+  if (!response.ok) {
+    return {
+      success: false,
+      error: `HTTP ${response.status}: ${response.statusText}`,
+    };
+  }
+  try {
+    return await response.json();
+  } catch {
+    return {
+      success: false,
+      error: 'Erro ao processar resposta do servidor',
+    };
+  }
+}
+
 export interface EnvioMonitoramento {
   id: number;
   trackingCode: string;
@@ -154,12 +171,12 @@ export interface TrackingEvento {
 
 export async function listarEnviosMonitoramento(): Promise<ApiResponse<EnvioMonitoramento[]>> {
   const response = await fetch(`${API_URL}/monitoramento`);
-  return response.json();
+  return handleResponse<EnvioMonitoramento[]>(response);
 }
 
 export async function obterResumoMonitoramento(): Promise<ApiResponse<MonitoramentoResumo>> {
   const response = await fetch(`${API_URL}/monitoramento/resumo`);
-  return response.json();
+  return handleResponse<MonitoramentoResumo>(response);
 }
 
 export async function listarAlertas(horas?: number): Promise<ApiResponse<AlertaEnvio[]>> {
@@ -167,7 +184,7 @@ export async function listarAlertas(horas?: number): Promise<ApiResponse<AlertaE
     ? `${API_URL}/monitoramento/alertas?horas=${horas}`
     : `${API_URL}/monitoramento/alertas`;
   const response = await fetch(url);
-  return response.json();
+  return handleResponse<AlertaEnvio[]>(response);
 }
 
 export async function buscarEnvioDetalhe(trackingCode: string): Promise<ApiResponse<{
@@ -175,7 +192,7 @@ export async function buscarEnvioDetalhe(trackingCode: string): Promise<ApiRespo
   eventos: TrackingEvento[];
 }>> {
   const response = await fetch(`${API_URL}/monitoramento/${trackingCode}`);
-  return response.json();
+  return handleResponse<{ envio: EnvioMonitoramento; eventos: TrackingEvento[] }>(response);
 }
 
 export async function atualizarTracking(trackingCode?: string): Promise<ApiResponse<any>> {
@@ -183,5 +200,5 @@ export async function atualizarTracking(trackingCode?: string): Promise<ApiRespo
     ? `${API_URL}/monitoramento/${trackingCode}/atualizar`
     : `${API_URL}/monitoramento/atualizar`;
   const response = await fetch(url, { method: 'POST' });
-  return response.json();
+  return handleResponse<any>(response);
 }
