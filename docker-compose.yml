@@ -14,9 +14,10 @@ services:
       - FM_API_USER=apikey
       - FM_API_PASSWORD=0663acdd9ee44005e6ea08dd0ae339c0afa33e1e55e541fa8fa37c7c9abc5086
       - FM_CLIENT_DOCUMENT=34383648835
-      - TINY_API_URL=http://tiny-cli:3011/api/tiny
-      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,https://fm.sdebot.top,http://185.137.92.39:3020
-      - DB_HOST=185.137.92.39
+      # IMPORTANTE: Usar URL externa porque fm-cli e tiny-cli estao em redes Docker diferentes
+      - TINY_API_URL=http://tiny.sdebot.top:3011/api/tiny
+      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,https://fm.sdebot.top
+      - DB_HOST=sql.sdebot.top
       - DB_PORT=5432
       - DB_USER=sde_admin
       - DB_PASSWORD=PgRPxiqOvn2025
