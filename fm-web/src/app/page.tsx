@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Pedido, EnvioResultado, EtiquetaResultado, buscarPedidosFMTransportes, enviarPedidos, gerarEtiquetas } from '@/lib/api';
+import { Pedido, EnvioResultado, EtiquetaResultado, buscarPedidosFMTransportes, enviarPedidos, gerarEtiquetas, gerarDeclaracao, montarDadosDeclaracao } from '@/lib/api';
 import { formatarMoeda } from '@/lib/utils';
 import { abrirEtiqueta10x15, combinarEtiquetas10x15 } from '@/lib/pdf-utils';
 
@@ -15,16 +15,32 @@ export default function Home() {
   const [gerandoEtiquetas, setGerandoEtiquetas] = useState(false);
   const [etiquetas, setEtiquetas] = useState<EtiquetaResultado[]>([]);
   const [processandoPdf, setProcessandoPdf] = useState(false);
+  const [dataSelecionada, setDataSelecionada] = useState<string>('');
+  const [gerandoDeclaracoes, setGerandoDeclaracoes] = useState(false);
+  const [declaracoes, setDeclaracoes] = useState<Array<{ trackingCode: string; pedidoNumero: string; pdfUrl: string | null; erro?: string }>>([]);
 
   useEffect(() => {
-    carregarPedidos();
+    // Define data de hoje no formato YYYY-MM-DD
+    const hoje = new Date();
+    const dataFormatada = hoje.toISOString().split('T')[0];
+    setDataSelecionada(dataFormatada);
   }, []);
+
+  useEffect(() => {
+    if (dataSelecionada) {
+      carregarPedidos();
+    }
+  }, [dataSelecionada]);
 
   async function carregarPedidos() {
     setCarregando(true);
     setErro(null);
     try {
-      const response = await buscarPedidosFMTransportes();
+      // Converte YYYY-MM-DD para DD/MM/YYYY para a API
+      const dataApi = dataSelecionada
+        ? dataSelecionada.split('-').reverse().join('/')
+        : undefined;
+      const response = await buscarPedidosFMTransportes(dataApi);
       if (response.success && response.data) {
         setPedidos(response.data);
       } else {
@@ -122,6 +138,71 @@ export default function Home() {
     }
   }
 
+  async function handleGerarDeclaracoes() {
+    const pedidosEnviados = resultados
+      .filter(r => r.sucesso && r.trackingCode)
+      .map(r => {
+        const pedido = pedidos.find(p => p.id === r.pedidoId);
+        return { resultado: r, pedido };
+      })
+      .filter(item => item.pedido);
+
+    if (pedidosEnviados.length === 0) {
+      alert('Nenhum pedido enviado com tracking code disponivel');
+      return;
+    }
+
+    setGerandoDeclaracoes(true);
+    setDeclaracoes([]);
+
+    const novasDeclaracoes: Array<{ trackingCode: string; pedidoNumero: string; pdfUrl: string | null; erro?: string }> = [];
+
+    for (const { resultado, pedido } of pedidosEnviados) {
+      try {
+        const dados = montarDadosDeclaracao(pedido!, resultado.trackingCode!);
+        const response = await gerarDeclaracao(dados);
+
+        if (response.success && response.pdf) {
+          // Converte base64 para blob URL
+          const byteCharacters = atob(response.pdf);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: 'application/pdf' });
+          const pdfUrl = URL.createObjectURL(blob);
+
+          novasDeclaracoes.push({
+            trackingCode: resultado.trackingCode!,
+            pedidoNumero: resultado.pedidoNumero,
+            pdfUrl,
+          });
+        } else {
+          novasDeclaracoes.push({
+            trackingCode: resultado.trackingCode!,
+            pedidoNumero: resultado.pedidoNumero,
+            pdfUrl: null,
+            erro: response.error || 'Erro ao gerar declaracao',
+          });
+        }
+      } catch (e: any) {
+        novasDeclaracoes.push({
+          trackingCode: resultado.trackingCode!,
+          pedidoNumero: resultado.pedidoNumero,
+          pdfUrl: null,
+          erro: e.message || 'Erro de conexao',
+        });
+      }
+    }
+
+    setDeclaracoes(novasDeclaracoes);
+    setGerandoDeclaracoes(false);
+
+    const sucessos = novasDeclaracoes.filter(d => d.pdfUrl).length;
+    alert(`${sucessos} declaracao(es) gerada(s) com sucesso!`);
+  }
+
   return (
     <main className="min-h-screen p-8 bg-gray-50">
       <div className="max-w-7xl mx-auto">
@@ -133,6 +214,16 @@ export default function Home() {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label htmlFor="data" className="text-sm text-gray-600">Data:</label>
+                <input
+                  type="date"
+                  id="data"
+                  value={dataSelecionada}
+                  onChange={(e) => setDataSelecionada(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
               <button
                 onClick={carregarPedidos}
                 disabled={carregando}
@@ -153,13 +244,22 @@ export default function Home() {
                 {enviando ? 'Enviando...' : `Enviar para FM (${selecionados.size})`}
               </button>
               {trackingCodesEnviados.length > 0 && (
-                <button
-                  onClick={handleGerarEtiquetas}
-                  disabled={gerandoEtiquetas}
-                  className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {gerandoEtiquetas ? 'Gerando...' : `Gerar Etiquetas (${trackingCodesEnviados.length})`}
-                </button>
+                <>
+                  <button
+                    onClick={handleGerarEtiquetas}
+                    disabled={gerandoEtiquetas}
+                    className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {gerandoEtiquetas ? 'Gerando...' : `Gerar Etiquetas (${trackingCodesEnviados.length})`}
+                  </button>
+                  <button
+                    onClick={handleGerarDeclaracoes}
+                    disabled={gerandoDeclaracoes}
+                    className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {gerandoDeclaracoes ? 'Gerando...' : `Gerar Declaracoes (${trackingCodesEnviados.length})`}
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -245,6 +345,43 @@ export default function Home() {
                     className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 text-sm disabled:opacity-50"
                   >
                     {processandoPdf ? 'Processando...' : 'Abrir Todas 10x15cm'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {declaracoes.length > 0 && (
+            <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-md">
+              <h3 className="font-semibold text-purple-800 mb-2">Declaracoes de Conteudo</h3>
+              <div className="space-y-2 text-sm">
+                {declaracoes.map((d, i) => (
+                  <div key={i} className={`flex items-center justify-between ${d.pdfUrl ? 'text-purple-700' : 'text-red-600'}`}>
+                    <span>Pedido {d.pedidoNumero} - Tracking: {d.trackingCode}</span>
+                    {d.pdfUrl ? (
+                      <button
+                        onClick={() => window.open(d.pdfUrl!, '_blank')}
+                        className="px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 text-xs"
+                      >
+                        Abrir Declaracao
+                      </button>
+                    ) : (
+                      <span className="text-red-500 text-xs">{d.erro || 'Erro ao gerar'}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {declaracoes.some(d => d.pdfUrl) && (
+                <div className="mt-3 pt-3 border-t border-purple-200">
+                  <button
+                    onClick={() => {
+                      declaracoes
+                        .filter(d => d.pdfUrl)
+                        .forEach(d => window.open(d.pdfUrl!, '_blank'));
+                    }}
+                    className="px-4 py-2 bg-purple-700 text-white rounded hover:bg-purple-800 text-sm"
+                  >
+                    Abrir Todas Declaracoes
                   </button>
                 </div>
               )}
@@ -337,7 +474,7 @@ export default function Home() {
         </div>
 
         <footer className="mt-8 text-center text-gray-500 text-sm">
-          FM Transportes - Setor da Embalagem | MVP 2 - Envio de Pedidos + Etiquetas
+          FM Transportes - Setor da Embalagem | MVP 3 - Envio + Etiquetas + Declaracoes
         </footer>
       </div>
     </main>

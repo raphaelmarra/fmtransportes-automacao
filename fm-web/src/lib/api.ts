@@ -1,5 +1,12 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+export interface ItemPedido {
+  sku: string;
+  quantidade: number;
+  descricao: string;
+  valorUnitario?: number;
+}
+
 export interface Pedido {
   id: string;
   numero: string;
@@ -20,6 +27,7 @@ export interface Pedido {
   valor: number;
   valorFrete: number;
   situacao: string;
+  itens?: ItemPedido[];
 }
 
 export interface EnvioResultado {
@@ -104,6 +112,73 @@ export async function gerarEtiquetas(trackingCodes: string[]): Promise<Etiquetas
     body: JSON.stringify({ trackingCodes }),
   });
   return response.json();
+}
+
+// Declaracao de Conteudo
+
+export interface DadosDeclaracao {
+  trackingCode: string;
+  numeroPedido: string;
+  destinatario: {
+    nome: string;
+    cpfCnpj: string;
+    endereco: string;
+    numero: string;
+    bairro: string;
+    cidade: string;
+    uf: string;
+  };
+  itens: Array<{
+    descricao: string;
+    quantidade: number;
+    valor: number;
+  }>;
+  valorTotal: number;
+}
+
+export interface DeclaracaoResponse {
+  success: boolean;
+  pdf?: string;
+  error?: string;
+}
+
+export async function gerarDeclaracao(dados: DadosDeclaracao): Promise<DeclaracaoResponse> {
+  const response = await fetch(`${API_URL}/declaracao/base64`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(dados),
+  });
+  return response.json();
+}
+
+export function montarDadosDeclaracao(pedido: Pedido, trackingCode: string): DadosDeclaracao {
+  const itens = pedido.itens?.map(item => ({
+    descricao: item.descricao,
+    quantidade: item.quantidade,
+    valor: item.valorUnitario || 0,
+  })) || [{
+    descricao: 'Embalagens',
+    quantidade: 1,
+    valor: pedido.valor - pedido.valorFrete,
+  }];
+
+  return {
+    trackingCode,
+    numeroPedido: pedido.numero,
+    destinatario: {
+      nome: pedido.cliente,
+      cpfCnpj: pedido.cpfCnpj,
+      endereco: pedido.endereco.logradouro,
+      numero: pedido.endereco.numero,
+      bairro: pedido.endereco.bairro,
+      cidade: pedido.endereco.cidade,
+      uf: pedido.endereco.uf,
+    },
+    itens,
+    valorTotal: pedido.valor - pedido.valorFrete,
+  };
 }
 
 // Monitoramento
