@@ -81,7 +81,8 @@ export default function Home() {
     setResultados([]);
 
     try {
-      const response = await enviarPedidos(Array.from(selecionados));
+      const dataApi = dataSelecionada ? dataSelecionada.split('-').reverse().join('/') : undefined;
+      const response = await enviarPedidos(Array.from(selecionados), dataApi);
       setResultados(response.resultados || []);
 
       if (response.success) {

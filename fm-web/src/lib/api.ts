@@ -67,13 +67,13 @@ export async function buscarPedidosFMTransportes(data?: string): Promise<ApiResp
   return response.json();
 }
 
-export async function enviarPedidos(pedidoIds: string[]): Promise<EnvioResponse> {
+export async function enviarPedidos(pedidoIds: string[], data?: string): Promise<EnvioResponse> {
   const response = await fetch(`${API_URL}/enviar`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ pedidoIds }),
+    body: JSON.stringify({ pedidoIds, data }),
   });
   return response.json();
 }

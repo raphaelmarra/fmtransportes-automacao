@@ -5,6 +5,7 @@ import { DatabaseService } from '../core/database.service';
 import { PedidoSimulacaoDTO } from '../core/dto/pedido.dto';
 
 interface EnviarPedidosDTO {
+  data?: string;
   pedidoIds: string[];
 }
 
@@ -24,7 +25,7 @@ export class EnvioController {
    */
   @Post('enviar')
   async enviarPedidos(@Body() body: EnviarPedidosDTO) {
-    const { pedidoIds } = body;
+    const { pedidoIds, data } = body;
 
     if (!pedidoIds || pedidoIds.length === 0) {
       return {
@@ -38,7 +39,7 @@ export class EnvioController {
 
     try {
       // Busca os pedidos completos do Tiny
-      const todosPedidos = await this.tinyService.buscarPedidosFMTransportesHoje();
+      const todosPedidos = await this.tinyService.buscarPedidosFMTransportesHoje(data);
 
       // Filtra apenas os pedidos selecionados
       const pedidosSelecionados: PedidoSimulacaoDTO[] = todosPedidos.filter((p) =>
