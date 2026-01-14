@@ -1,0 +1,71 @@
+# deployment.yaml - FONTE DE VERDADE DO SERVICO
+# Gerado por: /release
+# Data: 2026-01-14
+#
+# IMPORTANTE: Este arquivo define como o servico DEVE rodar.
+# NAO EDITAR MANUALMENTE - Use /release para atualizar.
+
+service:
+  name: fm-web
+  version: 1.1.0
+  status: production
+
+project:
+  type: nextjs
+  language: typescript
+  entrypoint: server.js
+
+runtime:
+  type: docker
+  container_name: fm-web
+  image: fm-web:1.1.0
+  network: fm-transportes_fm-network
+  restart: unless-stopped
+
+ports:
+  internal: 3000
+  external: 3030
+
+infrastructure:
+  domain: fm.sdebot.top
+  ssl: true
+  proxy: traefik
+
+paths:
+  source: /opt/fm-transportes/fm-web
+  compose: /opt/fm-transportes/docker-compose.yml
+  logs: /var/log/fm-web
+
+build:
+  required: true
+  command: npm run build
+  args:
+    - NEXT_PUBLIC_API_URL=https://fm.sdebot.top/api
+
+tests:
+  configured: false
+  command: null
+  required_for_release: false
+
+healthcheck:
+  endpoint: /
+  interval: 30s
+  timeout: 10s
+  retries: 3
+
+dependencies:
+  - service: fm-cli
+    port: 3021
+    required: true
+
+rollback:
+  previous_version: 1.0.0
+  strategy: redeploy
+  command: "/release fm-web --rollback=v1.0.0"
+
+metadata:
+  created: 2026-01-14
+  updated: 2026-01-14
+  released_by: claude-code
+  repository: fmtransportes-automacao
+  commit: pending

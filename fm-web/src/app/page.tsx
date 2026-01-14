@@ -18,6 +18,7 @@ export default function Home() {
   const [dataSelecionada, setDataSelecionada] = useState<string>('');
   const [gerandoDeclaracoes, setGerandoDeclaracoes] = useState(false);
   const [declaracoes, setDeclaracoes] = useState<Array<{ trackingCode: string; pedidoNumero: string; pdfUrl: string | null; erro?: string }>>([]);
+  const [volumesPorPedido, setVolumesPorPedido] = useState<Map<string, number | undefined>>(new Map());
 
   useEffect(() => {
     // Define data de hoje no formato YYYY-MM-DD
@@ -153,6 +154,18 @@ export default function Home() {
       return;
     }
 
+    // Verificar se todos os volumes estao preenchidos
+    const pedidosSemVolume = pedidosEnviados.filter(({ resultado }) => {
+      const vol = volumesPorPedido.get(resultado.pedidoId);
+      return vol === undefined || vol === null || vol <= 0;
+    });
+
+    if (pedidosSemVolume.length > 0) {
+      const numeros = pedidosSemVolume.map(p => p.resultado.pedidoNumero).join(', ');
+      alert(`Preencha o campo VOLUMES para os pedidos: ${numeros}`);
+      return;
+    }
+
     setGerandoDeclaracoes(true);
     setDeclaracoes([]);
 
@@ -160,7 +173,8 @@ export default function Home() {
 
     for (const { resultado, pedido } of pedidosEnviados) {
       try {
-        const dados = montarDadosDeclaracao(pedido!, resultado.trackingCode!);
+        const volumes = volumesPorPedido.get(resultado.pedidoId);
+        const dados = montarDadosDeclaracao(pedido!, resultado.trackingCode!, volumes);
         const response = await gerarDeclaracao(dados);
 
         if (response.success && response.pdf) {
@@ -274,13 +288,40 @@ export default function Home() {
           {resultados.length > 0 && (
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md">
               <h3 className="font-semibold text-green-800 mb-2">Resultados do Envio</h3>
-              <div className="space-y-1 text-sm">
+              <div className="space-y-2 text-sm">
                 {resultados.map((r, i) => (
-                  <div key={i} className={r.sucesso ? 'text-green-700' : 'text-red-600'}>
-                    Pedido {r.pedidoNumero}: {r.sucesso ? `Tracking: ${r.trackingCode}` : `Erro: ${r.erro}`}
+                  <div key={i} className={`flex items-center gap-4 ${r.sucesso ? 'text-green-700' : 'text-red-600'}`}>
+                    <span className="flex-1">
+                      Pedido {r.pedidoNumero}: {r.sucesso ? `Tracking: ${r.trackingCode}` : `Erro: ${r.erro}`}
+                    </span>
+                    {r.sucesso && (
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-medium text-gray-600">Volumes:</label>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="?"
+                          value={volumesPorPedido.get(r.pedidoId) ?? ''}
+                          onChange={(e) => {
+                            const valor = e.target.value ? parseInt(e.target.value, 10) : undefined;
+                            setVolumesPorPedido(prev => {
+                              const novo = new Map(prev);
+                              novo.set(r.pedidoId, valor);
+                              return novo;
+                            });
+                          }}
+                          className="w-16 px-2 py-1 text-center border border-gray-300 rounded text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
+              {resultados.some(r => r.sucesso) && (
+                <p className="mt-3 text-xs text-gray-500 border-t border-green-200 pt-2">
+                  Preencha o campo VOLUMES antes de gerar as declaracoes
+                </p>
+              )}
             </div>
           )}
 

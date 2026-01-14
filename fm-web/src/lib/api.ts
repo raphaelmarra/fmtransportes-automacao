@@ -134,6 +134,7 @@ export interface DadosDeclaracao {
     valor: number;
   }>;
   valorTotal: number;
+  volumes?: number;
 }
 
 export interface DeclaracaoResponse {
@@ -153,7 +154,7 @@ export async function gerarDeclaracao(dados: DadosDeclaracao): Promise<Declaraca
   return response.json();
 }
 
-export function montarDadosDeclaracao(pedido: Pedido, trackingCode: string): DadosDeclaracao {
+export function montarDadosDeclaracao(pedido: Pedido, trackingCode: string, volumes?: number): DadosDeclaracao {
   const itens = pedido.itens?.map(item => ({
     descricao: item.descricao,
     quantidade: item.quantidade,
@@ -178,6 +179,7 @@ export function montarDadosDeclaracao(pedido: Pedido, trackingCode: string): Dad
     },
     itens,
     valorTotal: pedido.valor - pedido.valorFrete,
+    volumes,
   };
 }
 
